@@ -1,0 +1,10 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ExpenseTrackingSystem.RegisterPage">
+    <StackLayout Padding="20">
+        <Entry Placeholder="Enter Email" x:Name="EmailEntry" />
+        <Entry Placeholder="Enter Password" IsPassword="True" x:Name="PasswordEntry" />
+        <Entry Placeholder="Confirm Password" IsPassword="True" x:Name="ConfirmPasswordEntry" />
+        <Button Text="Register" Clicked="OnRegisterClicked" />
+    </StackLayout>
+</ContentPage>
