@@ -1,0 +1,72 @@
+@page "/"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+
+<h3 class="login-title">Login</h3>
+
+<EditForm Model="@loginModel" OnValidSubmit="HandleLogin" class="login-form">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="username" class="form-label">Username</label>
+        <InputText id="username" class="form-input" @bind-Value="loginModel.Username" />
+    </div>
+
+    <div class="form-group">
+        <label for="password" class="form-label">Password</label>
+        <InputText id="password" class="form-input" type="password" @bind-Value="loginModel.Password" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Login</button>
+
+    <p class="register-link">
+        Don't have an account? <a href="/register">Register here</a>
+    </p>
+</EditForm>
+
+@code {
+    private LoginModel loginModel = new LoginModel();
+
+    private async Task HandleLogin()
+    {
+        Console.WriteLine("Submitting form...");
+        Console.WriteLine($"Username: {loginModel.Username}, Password: {loginModel.Password}");
+
+        var response = await Http.PostAsJsonAsync("api/auth/login", loginModel);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var tokenResponse = await response.Content.ReadFromJsonAsync<TokenResponse>(); // Read token from response
+
+            if (tokenResponse != null)
+            {
+                var token = tokenResponse.Token;
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "authToken", token); // Store token in localStorage
+                Console.WriteLine("Login successful.");
+                NavigationManager.NavigateTo("/dashboard");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Login failed.");
+        }
+    }
+
+    public class LoginModel
+    {
+        [Required(ErrorMessage = "Username is required")]
+        public string? Username { get; set; } // Make nullable
+
+        [Required(ErrorMessage = "Password is required")]
+        public string? Password { get; set; } // Make nullable
+    }
+
+    public class TokenResponse
+    {
+        public string Token { get; set; }
+    }
+}

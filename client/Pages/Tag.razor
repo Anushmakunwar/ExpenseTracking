@@ -1,0 +1,185 @@
+@page "/tags"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@using System.ComponentModel.DataAnnotations
+
+<h3 class="tag-title">Tags</h3>
+
+@if (!isAuthenticated)
+{
+    <p class="text-danger">You are not authenticated. Redirecting to login...</p>
+}
+else
+{
+    <EditForm Model="@tagModel" OnValidSubmit="HandleTag" class="tag-form">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-group">
+            <label for="name" class="form-label">Tag Name</label>
+            <InputText id="name" class="form-input" @bind-Value="tagModel.Name" />
+        </div>
+
+        <div class="form-group">
+            <label for="description" class="form-label">Description</label>
+            <InputTextArea id="description" class="form-input" @bind-Value="tagModel.Description" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Add Tag</button>
+    </EditForm>
+
+    <hr />
+
+    <h4>Existing Tags</h4>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (tags.Any())
+            {
+                @foreach (var tag in tags)
+                {
+                    <tr>
+                        <td>@tag.Name</td>
+                        <td>@tag.Description</td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="2" class="text-center">No tags found.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private TagModel tagModel = new TagModel();
+    private List<TagModel> tags = new List<TagModel>();
+    private bool isAuthenticated = false;
+    private string? authToken;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check authentication
+        authToken = await GetAuthTokenAsync();
+        if (string.IsNullOrWhiteSpace(authToken))
+        {
+            isAuthenticated = false;
+            Console.WriteLine("User not authenticated. Redirecting to login...");
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            isAuthenticated = true;
+            await FetchTags();
+        }
+    }
+
+    private async Task FetchTags()
+    {
+        Console.WriteLine("Fetching tags from the backend...");
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "api/tags");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var responseData = await response.Content.ReadFromJsonAsync<List<TagModel>>();
+                if (responseData != null)
+                {
+                    tags = responseData;
+                    Console.WriteLine($"Fetched {tags.Count} tags.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Failed to fetch tags.");
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    Console.WriteLine("Authentication failed. Redirecting to login...");
+                    NavigationManager.NavigateTo("/login");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching tags: {ex.Message}");
+        }
+    }
+
+   private async Task HandleTag()
+{
+    Console.WriteLine("Submitting tag...");
+    try
+    {
+        // Retrieve userId from localStorage
+        var userIdString = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userId");
+
+        // Check if userIdString is null or empty, then parse to int if valid
+        if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out var UserId))
+        {
+            Console.WriteLine("User ID is missing or invalid. Cannot submit tag.");
+            return;
+        }
+
+        // Set UserId dynamically in the tag model
+        tagModel.UserId = UserId;
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "api/tags")
+        {
+            Content = JsonContent.Create(tagModel)
+        };
+
+        // Add the Bearer token to the request header
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+
+        // Send the request
+        var response = await Http.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            Console.WriteLine("Tag added successfully.");
+            tags.Add(tagModel); // Add to the local list
+            tagModel = new TagModel(); // Reset the form
+        }
+        else
+        {
+            Console.WriteLine("Failed to add tag.");
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Console.WriteLine("Authentication failed. Redirecting to login...");
+                NavigationManager.NavigateTo("/login");
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error adding tag: {ex.Message}");
+    }
+}
+
+    private async Task<string?> GetAuthTokenAsync()
+    {
+        // Simulate token retrieval. Replace this with your logic for retrieving the token.
+        return await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+    }
+
+    public class TagModel
+    {
+        [Required(ErrorMessage = "Name is required")]
+        public string Name { get; set; }
+
+        public string? Description { get; set; }
+
+        public int? UserId { get; set; } // UserId is now part of the model
+    }
+}

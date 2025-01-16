@@ -1,0 +1,100 @@
+@page "/register"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+
+<h3 class="register-title">Register</h3>
+
+<EditForm Model="@registerModel" OnValidSubmit="HandleRegister" class="register-form">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="username" class="form-label">Username</label>
+        <InputText id="username" class="form-input" @bind-Value="registerModel.Username" />
+        <ValidationMessage For="@(() => registerModel.Username)" />
+    </div>
+
+    <div class="form-group">
+        <label for="email" class="form-label">Email</label>
+        <InputText id="email" class="form-input" @bind-Value="registerModel.Email" />
+        <ValidationMessage For="@(() => registerModel.Email)" />
+    </div>
+
+    <div class="form-group">
+        <label for="currency" class="form-label">Currency</label>
+        <InputText id="currency" class="form-input" @bind-Value="registerModel.Currency" />
+        <ValidationMessage For="@(() => registerModel.Currency)" />
+    </div>
+
+    @* <div class="form-group">
+        <label for="budget" class="form-label">Budget</label>
+        <InputNumber id="budget" class="form-input" @bind-Value="registerModel.Budget" />
+        <ValidationMessage For="@(() => registerModel.Budget)" />
+    </div> *@
+
+    <div class="form-group">
+        <label for="password" class="form-label">Password</label>
+        <InputText id="password" class="form-input" type="password" @bind-Value="registerModel.Password" />
+        <ValidationMessage For="@(() => registerModel.Password)" />
+    </div>
+
+    <div class="form-group">
+        <label for="confirmPassword" class="form-label">Confirm Password</label>
+        <InputText id="confirmPassword" class="form-input" type="password" @bind-Value="registerModel.ConfirmPassword" />
+        <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Register</button>
+
+    <p class="login-link">
+        Already have an account? <a href="/">Login here</a>
+    </p>
+</EditForm>
+
+@code {
+    private RegisterModel registerModel = new RegisterModel();
+
+    private async Task HandleRegister()
+    {
+        Console.WriteLine("Registering user...");
+        Console.WriteLine($"Username: {registerModel.Username}, Email: {registerModel.Email}, Currency: {registerModel.Currency}");
+
+        var response = await Http.PostAsJsonAsync("api/auth/register", registerModel);
+
+        if (response.IsSuccessStatusCode)
+        {
+            Console.WriteLine("Registration successful.");
+            NavigationManager.NavigateTo("/");
+        }
+        else
+        {
+            Console.WriteLine("Registration failed.");
+        }
+    }
+
+    public class RegisterModel
+    {
+        [Required(ErrorMessage = "Username is required")]
+        public string Username { get; set; }
+
+        [Required(ErrorMessage = "Email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        public string Email { get; set; }
+
+        [Required(ErrorMessage = "Currency is required")]
+        public string Currency { get; set; }
+
+        @* [Required(ErrorMessage = "Budget is required")]
+        [Range(0, double.MaxValue, ErrorMessage = "Budget must be a positive value")]
+        public decimal Budget { get; set; } *@
+
+        [Required(ErrorMessage = "Password is required")]
+        public string Password { get; set; }
+
+        [Required(ErrorMessage = "Confirm Password is required")]
+        [Compare("Password", ErrorMessage = "Password and Confirm Password do not match")]
+        public string ConfirmPassword { get; set; }
+    }
+}

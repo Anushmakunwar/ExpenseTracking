@@ -1,0 +1,143 @@
+﻿@page "/dashboard"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<h3>Dashboard</h3>
+
+@if (userDetails != null)
+{
+    <div>
+        <p><strong>Username:</strong> @userDetails.Username</p>
+        <p><strong>Email:</strong> @userDetails.Email</p>
+        <p><strong>Currency:</strong> @userDetails.Currency</p>
+        <p><strong>Budget:</strong> @userDetails.Budget</p>
+    </div>
+}
+else
+{
+    <p>Loading user details...</p>
+}
+
+@if (transactionStats != null)
+{
+    <div>
+        <h4>Transaction Statistics</h4>
+        <p><strong>Total Inflows:</strong> @transactionStats.TotalInflows @userDetails.Currency</p>
+        <p><strong>Total Outflows:</strong> @transactionStats.TotalOutflows @userDetails.Currency</p>
+        <p><strong>Total Debts:</strong> @transactionStats.TotalDebts @userDetails.Currency</p>
+        <p><strong>Cleared Debts:</strong> @transactionStats.ClearedDebts @userDetails.Currency</p>
+        <p><strong>Remaining Debts:</strong> @transactionStats.RemainingDebts @userDetails.Currency</p>
+
+        <h4>Pending Debts</h4>
+        @if (transactionStats.PendingDebts.Any())
+        {
+            <ul>
+                @foreach (var debt in transactionStats.PendingDebts)
+                {
+                    <li>@debt.Source - Due: @debt.DueDate.ToString("dd MMM yyyy")</li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p>No pending debts.</p>
+        }
+
+        <h4>Highest/Lowest Transactions</h4>
+        <p><strong>Highest Inflow:</strong> @transactionStats.HighestInflow @userDetails.Currency</p>
+        <p><strong>Highest Outflow:</strong> @transactionStats.HighestOutflow @userDetails.Currency</p>
+        <p><strong>Highest Debt:</strong> @transactionStats.HighestDebt @userDetails.Currency</p>
+    </div>
+}
+else
+{
+    <p>Loading transaction statistics...</p>
+}
+
+@code {
+    private UserDetailsDTO userDetails;
+    private TransactionStatsDTO transactionStats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Get the token (for example, from localStorage, sessionStorage, or a service)
+            var token = await GetAuthTokenAsync();
+
+            // Add the Authorization header
+            Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            // Fetch user details
+            var userDetailsResponse = await Http.GetFromJsonAsync<UserDetailsDTO>("api/auth/userdetails");
+
+            if (userDetailsResponse != null)
+            {
+                var userId = userDetailsResponse.Id;
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "userId", userId); // Store token in localStorage
+                userDetails = userDetailsResponse;
+            }
+            else
+            {
+                // Handle unauthorized or error response
+                NavigationManager.NavigateTo("/");
+                return;
+            }
+
+            // Fetch transaction statistics
+            var transactionStatsResponse = await Http.GetFromJsonAsync<TransactionStatsDTO>("api/transactions/stats");
+
+            if (transactionStatsResponse != null)
+            {
+                transactionStats = transactionStatsResponse;
+            }
+            else
+            {
+                // Handle error if the transaction stats are not available
+                Console.WriteLine("Error fetching transaction stats.");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exceptions (e.g., network issues, unauthorized access)
+            Console.WriteLine($"Error: {ex.Message}");
+            NavigationManager.NavigateTo("/");
+        }
+    }
+
+    private async Task<string> GetAuthTokenAsync()
+    {
+        // Retrieve the token from localStorage
+        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+        return token;
+    }
+
+    public class UserDetailsDTO
+    {
+        public int Id { get; set; }
+        public string Username { get; set; }
+        public string Email { get; set; }
+        public string Currency { get; set; }
+        public decimal Budget { get; set; }
+    }
+
+    public class TransactionStatsDTO
+    {
+        public decimal TotalInflows { get; set; }
+        public decimal TotalOutflows { get; set; }
+        public decimal TotalDebts { get; set; }
+        public decimal ClearedDebts { get; set; }
+        public decimal RemainingDebts { get; set; }
+        public List<DebtDTO> PendingDebts { get; set; }
+        public decimal HighestInflow { get; set; }
+        public decimal HighestOutflow { get; set; }
+        public decimal HighestDebt { get; set; }
+    }
+
+    public class DebtDTO
+    {
+        public string Source { get; set; }
+        public DateTime DueDate { get; set; }
+    }
+}
