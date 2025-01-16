@@ -1,127 +1,110 @@
-using ExpenseTracker.Models;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Linq;
+using ExpenseTracker.Services;
+using ExpenseTracker.Models;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace ExpenseTracker.Controllers
 {
-    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class DebtsController : ControllerBase
+    public class DebtController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly DebtService _debtService;
 
-        public DebtsController(ApplicationDbContext context)
+        public DebtController(DebtService debtService)
         {
-            _context = context;
+            _debtService = debtService;
         }
 
-        // GET: api/debts
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Debt>>> GetDebts()
+        // Endpoint to create a debt
+        [HttpPost]
+        public IActionResult CreateDebt([FromBody] Debt debt)
         {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-            var debts = await _context.Debts
-                .Where(d => d.UserId == userId)
-                .ToListAsync();
-
-            return Ok(debts);
-        }
-
-        // GET: api/debts/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Debt>> GetDebt(int id)
-        {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-            var debt = await _context.Debts
-                .Where(d => d.UserId == userId && d.Id == id)
-                .FirstOrDefaultAsync();
-
-            if (debt == null)
-            {
-                return NotFound();
-            }
-
+            _debtService.AddDebt(debt);
             return Ok(debt);
         }
 
-        // POST: api/debts
-        [HttpPost]
-        public async Task<ActionResult<Debt>> CreateDebt([FromBody] Debt debt)
+        // Endpoint to clear a debt
+        [HttpPost("ClearDebt")]
+        public IActionResult ClearDebt(int debtId)
         {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-            debt.UserId = userId;
-
-            _context.Debts.Add(debt);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetDebt", new { id = debt.Id }, debt);
+            _debtService.ClearDebt(debtId);
+            return Ok();
         }
 
-        // PUT: api/debts/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateDebt(int id, [FromBody] Debt debt)
+        // Endpoint to list pending debts
+        [HttpGet("PendingDebts")]
+        public IActionResult GetPendingDebts()
         {
-            if (id != debt.Id)
-            {
-                return BadRequest();
-            }
-
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-            if (debt.UserId != userId)
-            {
-                return Unauthorized();
-            }
-
-            _context.Entry(debt).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!DebtExists(id))
+                // Extracting userId from claims (make sure it's stored as NameIdentifier or modify accordingly)
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+                // If userId is null or empty, return Unauthorized
+                if (string.IsNullOrEmpty(userId))
                 {
-                    return NotFound();
+                    return Unauthorized("User not authenticated.");
                 }
-                else
+
+                // Convert to integer if valid
+                if (!int.TryParse(userId, out int parsedUserId))
                 {
-                    throw;
+                    return BadRequest("Invalid user ID.");
                 }
+
+                var pendingDebts = _debtService.GetPendingDebts(parsedUserId);
+
+                if (pendingDebts == null || pendingDebts.Count == 0)
+                {
+                    return NotFound("No pending debts found.");
+                }
+
+                return Ok(pendingDebts);
             }
-
-            return NoContent();
-        }
-
-        // DELETE: api/debts/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteDebt(int id)
-        {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-            var debt = await _context.Debts
-                .Where(d => d.UserId == userId && d.Id == id)
-                .FirstOrDefaultAsync();
-
-            if (debt == null)
+            catch (Exception ex)
             {
-                return NotFound();
+                return StatusCode(500, $"Internal server error: {ex.Message}");
             }
-
-            _context.Debts.Remove(debt);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
         }
 
-        private bool DebtExists(int id)
+         [HttpGet("AllDebts")]
+        public IActionResult GetAllDebts()
         {
-            return _context.Debts.Any(d => d.Id == id);
-        }
+            try
+            {
+                // Extracting userId from claims (ensure it's stored as NameIdentifier or modify accordingly)
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+                // If userId is null or empty, return Unauthorized
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("User not authenticated.");
+                }
+
+                // Convert to integer if valid
+                if (!int.TryParse(userId, out int parsedUserId))
+                {
+                    return BadRequest("Invalid user ID.");
+                }
+
+                // Get the list of all debts (pending or fulfilled) for the authenticated user
+                var allDebts = _debtService.GetAllDebts(parsedUserId);
+
+                // Check if any debts exist
+                if (allDebts == null || allDebts.Count == 0)
+                {
+                    return NotFound("No debts found.");
+                }
+
+                // Return the list of all debts
+                return Ok(allDebts);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        
+    }
     }
 }

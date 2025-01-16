@@ -39,10 +39,7 @@ namespace ExpenseTracker.Controllers
         [HttpPut]
         public async Task<IActionResult> UpdateUser([FromBody] UpdateUserModel model)
         {
-            // Get the user ID from the token
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-
-            // Find the user in the database
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
 
             if (user == null)
@@ -50,14 +47,13 @@ namespace ExpenseTracker.Controllers
                 return Unauthorized(); // User not found
             }
 
-            // Update user details
             if (!string.IsNullOrEmpty(model.Username))
                 user.Username = model.Username;
 
             if (!string.IsNullOrEmpty(model.Email))
                 user.Email = model.Email;
 
-            if (model.Budget.HasValue) // Budget is optional
+            if (model.Budget.HasValue)
                 user.Budget = model.Budget.Value;
 
             try
@@ -85,6 +81,34 @@ namespace ExpenseTracker.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+        // GET: api/auth/userdetails
+        [HttpGet("userdetails")]
+        public async Task<ActionResult<UserDetailsDTO>> GetUserDetails()
+        {
+            // Get the user ID from the token
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+
+            // Find the user in the database
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+            {
+                return Unauthorized(); // User not found
+            }
+
+            // Return user details in the DTO format
+            var userDetails = new UserDetailsDTO
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                Currency = user.Currency,
+                Budget = user.Budget
+            };
+
+            return Ok(userDetails); // Return the user details to the frontend
         }
     }
 }
