@@ -28,8 +28,8 @@ namespace dotnet.Migrations
                     b.Property<DateTime>("DueDate")
                         .HasColumnType("TEXT");
 
-                    b.Property<decimal>("RemainingAmount")
-                        .HasColumnType("TEXT");
+                    b.Property<bool>("IsCleared")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Source")
                         .IsRequired()
@@ -79,7 +79,12 @@ namespace dotnet.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Tags");
                 });
@@ -97,16 +102,14 @@ namespace dotnet.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Notes")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                    b.Property<int>("Type")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("UserId")
                         .HasColumnType("INTEGER");
@@ -164,6 +167,17 @@ namespace dotnet.Migrations
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Debt", b =>
+                {
+                    b.HasOne("ExpenseTracker.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ExpenseTracker.Models.Tag", b =>
                 {
                     b.HasOne("ExpenseTracker.Models.User", "User")
                         .WithMany()

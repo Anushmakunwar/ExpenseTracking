@@ -13,12 +13,10 @@ public class ApplicationDbContext : DbContext
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
     // Define relationships using Fluent API if necessary
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
-
-        // Many-to-many relationship between Transaction and Tag
-        modelBuilder.Entity<TransactionTag>()
+   protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    base.OnModelCreating(modelBuilder);
+   modelBuilder.Entity<TransactionTag>()
             .HasKey(tt => new { tt.TransactionId, tt.TagId });
 
         modelBuilder.Entity<TransactionTag>()
@@ -30,5 +28,10 @@ public class ApplicationDbContext : DbContext
             .HasOne(tt => tt.Tag)
             .WithMany(t => t.TransactionTags)
             .HasForeignKey(tt => tt.TagId);
-    }
+
+        modelBuilder.Entity<Tag>()
+            .HasOne(t => t.User)
+            .WithMany()
+            .HasForeignKey(t => t.UserId);
+            }
 }

@@ -9,6 +9,8 @@ using Microsoft.Extensions.Hosting;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
 using ExpenseTracker.Models;
+using System.Text.Json.Serialization;
+using System.Text.Json;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -20,7 +22,15 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddSingleton<PasswordHasher<User>>(); // Specify the User class as the type argument
 
 // Add controllers
-builder.Services.AddControllers();
+// For ASP.NET Core applications
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
+        options.JsonSerializerOptions.WriteIndented = true; // Optional, for pretty printing
+    });
+builder.Services.AddScoped<DebtService>();
+
 
 // Configure JWT authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -39,7 +49,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 // Add authorization
 builder.Services.AddAuthorization();
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSpecificOrigin", builder =>
+    {
+        builder.WithOrigins("http://localhost:5200")  // Replace with your frontend URL
+               .AllowAnyMethod()
+               .AllowAnyHeader()
+               .AllowCredentials();
+    });
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -52,7 +71,11 @@ else
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
+
 app.UseMiddleware<TokenBlacklistMiddleware>();
+
+
+app.UseCors("AllowSpecificOrigin");
 
 // Use HTTPS Redirection for production
 // app.UseHttpsRedirection();
