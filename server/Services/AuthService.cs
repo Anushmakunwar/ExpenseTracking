@@ -50,7 +50,7 @@ namespace ExpenseTracker.Services
                 Username = model.Username,
                 Email = model.Email,
                 Currency = model.Currency, // Assuming Currency is a required field
-                Budget = 0 // Assuming Budget is a required field
+                Budget =0// Assuming Budget is a required field
             };
 
             // Hash the password before storing it
