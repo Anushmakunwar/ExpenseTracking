@@ -1,6 +1,41 @@
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
+/* Style the navbar brand link */
+.navbar-brand {
+    font-size: 24px;           
+    font-weight: bold;        
+    color: #a7c4ae;           
+    text-transform: uppercase; 
+    letter-spacing: 2px;       
+    padding-left: 10px;        
+    padding-right: 10px;       
+    text-decoration: none;   
+    transition: color 0.3s ease;  
+}
+
+ .navbar-brand:hover {
+    color: #218838;  
+    text-decoration: underline;  
+}
+
+/* Styles for the delete button */
+.delete-btn {
+    background-color: red;        
+    color: white;               
+    border: none;                
+    padding: 8px 16px;          
+    font-size: 14px;             
+    border-radius: 4px;          
+    cursor: pointer;            
+    transition: background-color 0.3s ease;   
+}
+
+ 
+ .navbar {
+    margin-right: 20px;
+}
+
 
 h1:focus {
     outline: none;
@@ -8,6 +43,11 @@ h1:focus {
 
 a, .btn-link {
     color: #0071c1;
+}
+canvas {
+    max-width: 100%;
+    height: auto;
+    margin-bottom: 20px;
 }
 
 .btn-primary {
@@ -111,22 +151,7 @@ body {
     margin: 0;
     padding: 0;
 }
-/* Add these styles to your wwwroot/css/site.css */
-.login-title {
-    font-size: 2rem;
-    font-weight: bold;
-    margin-bottom: 20px;
-    text-align: center;
-}
 
-.login-form {
-    max-width: 400px;
-    margin: 0 auto;
-    padding: 20px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    background-color: #f9f9f9;
-}
 
 .form-group {
     margin-bottom: 15px;

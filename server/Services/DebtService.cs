@@ -48,11 +48,30 @@ namespace ExpenseTracker.Services
                 .ToList(); // No filter on IsCleared, returns all debts
         }
         // Get pending debts (debts that are not cleared)
-        public List<Debt> GetPendingDebts(int userId)
-        {
-            return _context.Debts
-                .Where(d => d.UserId == userId && !d.IsCleared)
-                .ToList();
-        }
+
+
+
+     public (List<Debt> Debts, int TotalPages) GetPendingDebts(int userId, int page = 1, int limit = 5)
+{
+    // Calculate the total number of debts for pagination
+    int totalDebts = _context.Debts
+        .Count(d => d.UserId == userId && !d.IsCleared);
+
+    // Calculate total pages (ensure no division by zero and round up)
+    int totalPages = (int)Math.Ceiling((double)totalDebts / limit);
+
+    // Calculate the number of items to skip based on the page and limit
+    int skip = (page - 1) * limit;
+
+    // Fetch the paginated debts
+    var debts = _context.Debts
+        .Where(d => d.UserId == userId && !d.IsCleared)
+        .Skip(skip) // Skip items from previous pages
+        .Take(limit) // Take only the items for the current page
+        .ToList();
+
+    return (debts, totalPages);
+}
+
     }
 }

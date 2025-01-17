@@ -33,40 +33,50 @@ namespace ExpenseTracker.Controllers
         }
 
         // Endpoint to list pending debts
-        [HttpGet("PendingDebts")]
-        public IActionResult GetPendingDebts()
+[HttpGet("PendingDebts")]
+public IActionResult GetPendingDebts([FromQuery] int page = 1, [FromQuery] int limit = 10)
+{
+    try
+    {
+        // Extracting userId from claims (make sure it's stored as NameIdentifier or modify accordingly)
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        // If userId is null or empty, return Unauthorized
+        if (string.IsNullOrEmpty(userId))
         {
-            try
-            {
-                // Extracting userId from claims (make sure it's stored as NameIdentifier or modify accordingly)
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-                // If userId is null or empty, return Unauthorized
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized("User not authenticated.");
-                }
-
-                // Convert to integer if valid
-                if (!int.TryParse(userId, out int parsedUserId))
-                {
-                    return BadRequest("Invalid user ID.");
-                }
-
-                var pendingDebts = _debtService.GetPendingDebts(parsedUserId);
-
-                if (pendingDebts == null || pendingDebts.Count == 0)
-                {
-                    return NotFound("No pending debts found.");
-                }
-
-                return Ok(pendingDebts);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
+            return Unauthorized("User not authenticated.");
         }
+
+        // Convert to integer if valid
+        if (!int.TryParse(userId, out int parsedUserId))
+        {
+            return BadRequest("Invalid user ID.");
+        }
+
+        // Get paginated pending debts and total pages
+        var (pendingDebts, totalPages) = _debtService.GetPendingDebts(parsedUserId, page, limit);
+
+        // Check if there are any debts
+        if (pendingDebts == null || pendingDebts.Count == 0)
+        {
+            return NotFound("No pending debts found.");
+        }
+
+        return Ok(new
+        {
+            Page = page,
+            Limit = limit,
+            TotalPages = totalPages,
+            TotalDebts = pendingDebts.Count,
+            Data = pendingDebts
+        });
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, $"Internal server error: {ex.Message}");
+    }
+}
+
 
          [HttpGet("AllDebts")]
         public IActionResult GetAllDebts()

@@ -3,7 +3,6 @@ using ExpenseTracker.Models;
 
 public class ApplicationDbContext : DbContext
 {
-    public DbSet<Expense> Expenses { get; set; }
     public DbSet<User> Users { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<Tag> Tags { get; set; }
@@ -12,11 +11,12 @@ public class ApplicationDbContext : DbContext
 
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
-    // Define relationships using Fluent API if necessary
-   protected override void OnModelCreating(ModelBuilder modelBuilder)
-{
-    base.OnModelCreating(modelBuilder);
-   modelBuilder.Entity<TransactionTag>()
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Configure the relationship between Transaction and Tag through the TransactionTag model.
+        modelBuilder.Entity<TransactionTag>()
             .HasKey(tt => new { tt.TransactionId, tt.TagId });
 
         modelBuilder.Entity<TransactionTag>()
@@ -29,9 +29,10 @@ public class ApplicationDbContext : DbContext
             .WithMany(t => t.TransactionTags)
             .HasForeignKey(tt => tt.TagId);
 
+        // If you have other relationships, configure them here without calling DbContext or querying the database.
         modelBuilder.Entity<Tag>()
             .HasOne(t => t.User)
-            .WithMany()
+            .WithMany() 
             .HasForeignKey(t => t.UserId);
-            }
+    }
 }

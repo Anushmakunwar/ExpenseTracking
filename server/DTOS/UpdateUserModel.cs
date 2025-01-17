@@ -4,6 +4,6 @@ namespace ExpenseTracker.DTOs
     {
         public string? Username { get; set; }
         public string? Email { get; set; }
-        public decimal? Budget { get; set; } // Optional budget
+        public decimal? Budget { get; set; } 
     }
 }

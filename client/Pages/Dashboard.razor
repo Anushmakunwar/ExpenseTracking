@@ -2,115 +2,314 @@
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
 
-<h3>Dashboard</h3>
-
-@if (userDetails != null)
-{
-    <div>
-        <p><strong>Username:</strong> @userDetails.Username</p>
-        <p><strong>Email:</strong> @userDetails.Email</p>
-        <p><strong>Currency:</strong> @userDetails.Currency</p>
-        <p><strong>Budget:</strong> @userDetails.Budget</p>
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        @* <h3>Dashboard</h3> *@
+        <p>Manage and analyze your transactions effectively.</p>
     </div>
-}
-else
-{
-    <p>Loading user details...</p>
-}
 
-@if (transactionStats != null)
-{
-    <div>
-        <h4>Transaction Statistics</h4>
-        <p><strong>Total Inflows:</strong> @transactionStats.TotalInflows @userDetails.Currency</p>
-        <p><strong>Total Outflows:</strong> @transactionStats.TotalOutflows @userDetails.Currency</p>
-        <p><strong>Total Debts:</strong> @transactionStats.TotalDebts @userDetails.Currency</p>
-        <p><strong>Cleared Debts:</strong> @transactionStats.ClearedDebts @userDetails.Currency</p>
-        <p><strong>Remaining Debts:</strong> @transactionStats.RemainingDebts @userDetails.Currency</p>
+    @if (userDetails != null && transactionSummary != null && transactionStats != null && transactionOverview != null)
+    {
+        <div class="dashboard-content">
+            <!-- Left Section -->
+            <div class="dashboard-left">
+                <div class="section">
+                    <h4>User Details</h4>
+                    <p><strong>Username:</strong> @userDetails.Username</p>
+                    <p><strong>Email:</strong> @userDetails.Email</p>
+                    <p><strong>Currency:</strong> @userDetails.Currency</p>
+                    <p><strong>Budget:</strong> @userDetails.Budget</p>
+                                    <button class="update-button" @onclick="OpenUpdateModal">Update User</button>
 
-        <h4>Pending Debts</h4>
-        @if (transactionStats.PendingDebts.Any())
-        {
-            <ul>
-                @foreach (var debt in transactionStats.PendingDebts)
-                {
-                    <li>@debt.Source - Due: @debt.DueDate.ToString("dd MMM yyyy")</li>
-                }
-            </ul>
-        }
-        else
-        {
-            <p>No pending debts.</p>
-        }
+                </div>
 
-        <h4>Highest/Lowest Transactions</h4>
-        <p><strong>Highest Inflow:</strong> @transactionStats.HighestInflow @userDetails.Currency</p>
-        <p><strong>Highest Outflow:</strong> @transactionStats.HighestOutflow @userDetails.Currency</p>
-        <p><strong>Highest Debt:</strong> @transactionStats.HighestDebt @userDetails.Currency</p>
-    </div>
-}
-else
-{
-    <p>Loading transaction statistics...</p>
+                <div class="section">
+                    <h4>Transaction Summary</h4>
+                    <canvas id="transaction-summary-chart" class="chart-container"></canvas>
+                </div>
+            </div>
+
+            <!-- Right Section -->
+            <div class="dashboard-right">
+                <div class="section">
+                    <h4>Transaction Statistics</h4>
+                    <canvas id="transaction-statistics-chart" class="chart-container"></canvas>
+                </div>
+
+                <div class="section">
+                    <h4>Highest/Lowest Transactions</h4>
+                    <p><strong>Highest Inflow:</strong> @FormatTransaction(transactionOverview.highestInflow)</p>
+                    <p><strong>Lowest Inflow:</strong> @FormatTransaction(transactionOverview.lowestInflow)</p>
+                    <p><strong>Highest Outflow:</strong> @FormatTransaction(transactionOverview.highestOutflow)</p>
+                    <p><strong>Lowest Outflow:</strong> @FormatTransaction(transactionOverview.lowestOutflow)</p>
+
+                </div>
+
+                <div class="section">
+                    <h4>Pending Debts</h4>
+
+                    @if (pendingDebts != null && pendingDebts.Any())
+                    {
+                        <ul class="debt-list">
+                            @foreach (var debt in pendingDebts)
+                            {
+                                <li>
+                                    <strong>Source:</strong> @debt.Source
+                                    <br />
+                                    <strong>Due Date:</strong> @debt.DueDate.ToString("dd MMM yyyy")
+                                    <br>
+                                    <strong>Amount:</strong> @debt.Amount
+                                </li>
+                            }
+                        </ul>
+
+                        <div class="pagination">
+                            <button class="page-button" @onclick="PreviousPage" disabled="@(!CanGoToPreviousPage)">Previous</button>
+                            <span>Page @currentPage of @totalPages</span>
+                            <button class="page-button" @onclick="NextPage" disabled="@(!CanGoToNextPage)">Next</button>
+                        </div>
+                    }
+                    else if (pendingDebts == null)
+                    {
+                        <p>Loading...</p>
+                    }
+                    else
+                    {
+                        <p>No pending debts found.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function initializeCharts(transactionStats) {
+                const transactionSummaryChart = new Chart(
+                    document.getElementById('transaction-summary-chart').getContext('2d'),
+                    {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Inflows', 'Outflows', 'Debt'],
+                            datasets: [{
+                                label: 'Summary',
+                                data: [
+                                    transactionStats.totalInflows,
+                                    transactionStats.totalOutflows,
+                                    transactionStats.totalDebt
+                                ],
+                                backgroundColor: ['#4CAF50', '#F44336', '#FFC107'],
+                            }],
+                        },
+                    }
+                );
+
+                const transactionStatisticsChart = new Chart(
+                    document.getElementById('transaction-statistics-chart').getContext('2d'),
+                    {
+                        type: 'bar',
+                        data: {
+                            labels: ['Inflows', 'Outflows', 'Debt Cleared', 'Remaining Debt'],
+                            datasets: [{
+                                label: 'Statistics',
+                                data: [
+                                    transactionStats.totalInflows,
+                                    transactionStats.totalOutflows,
+                                    transactionStats.clearedDebt,
+                                    transactionStats.remainingDebt
+                                ],
+                                backgroundColor: ['#4CAF50', '#F44336', '#FFC107', '#03A9F4'],
+                            }],
+                        },
+                    }
+                );
+            }
+        </script>
+    }
+    else
+    {
+        <p>Loading...</p>
+    }
+
+    
+</div>
+@if(isModalOpen){
+           <div class="modal" role="dialog">
+            <div class="modal-content">
+                <span class="close" @onclick="CloseUpdateModal">&times;</span>
+                <h4 class="update-btn">Update User</h4>
+                <EditForm Model="userToUpdate" OnValidSubmit="UpdateUser">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div>
+                        <label for="username">Username:</label>
+                        <InputText id="username" class="form-control" @bind-Value="userToUpdate.Username" />
+                    </div>
+
+                    <div>
+                        <label for="currency">Currency:</label>
+                        <InputText id="currency" class="form-control" @bind-Value="userToUpdate.Currency" />
+                    </div>
+
+                    <div>
+                        <label for="budget">Budget:</label>
+                        <InputNumber id="budget" class="form-control" @bind-Value="userToUpdate.Budget" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </EditForm>
+            </div>
+        </div>
 }
 
 @code {
     private UserDetailsDTO userDetails;
+    private TransactionSummaryDTO transactionSummary;
     private TransactionStatsDTO transactionStats;
+    private TransactionOverviewDTO transactionOverview;
+    private List<DebtDTO> pendingDebts;
+    private int currentPage = 1;
+    private int totalPages;
+    private int limit = 4;
+    private string searchTerm;
+    private string filterType;
+    private bool isModalOpen = false;
+    private UserDetailsDTO userToUpdate = new UserDetailsDTO();
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            // Get the token (for example, from localStorage, sessionStorage, or a service)
-            var token = await GetAuthTokenAsync();
+            await LoadPendingDebts();
 
-            // Add the Authorization header
+            var token = await GetAuthTokenAsync();
             Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-            // Fetch user details
-            var userDetailsResponse = await Http.GetFromJsonAsync<UserDetailsDTO>("api/auth/userdetails");
+            userDetails = await Http.GetFromJsonAsync<UserDetailsDTO>("api/auth/userdetails");
+             await JSRuntime.InvokeVoidAsync("localStorage.setItem", "userName", userDetails.Username); // Store token in localStorage
+                          await JSRuntime.InvokeVoidAsync("localStorage.setItem", "userId", userDetails?.Id); // Store token in localStorage
 
-            if (userDetailsResponse != null)
-            {
-                var userId = userDetailsResponse.Id;
-                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "userId", userId); // Store token in localStorage
-                userDetails = userDetailsResponse;
-            }
-            else
-            {
-                // Handle unauthorized or error response
-                NavigationManager.NavigateTo("/");
-                return;
-            }
+            userToUpdate = userDetails;
 
-            // Fetch transaction statistics
-            var transactionStatsResponse = await Http.GetFromJsonAsync<TransactionStatsDTO>("api/transactions/stats");
-
-            if (transactionStatsResponse != null)
-            {
-                transactionStats = transactionStatsResponse;
-            }
-            else
-            {
-                // Handle error if the transaction stats are not available
-                Console.WriteLine("Error fetching transaction stats.");
-            }
+            transactionSummary = await Http.GetFromJsonAsync<TransactionSummaryDTO>("api/transactions/summary");
+            transactionStats = await Http.GetFromJsonAsync<TransactionStatsDTO>("api/transactions/details");
+            transactionOverview = await Http.GetFromJsonAsync<TransactionOverviewDTO>("api/transactions/transaction-summary");
         }
         catch (Exception ex)
         {
-            // Handle exceptions (e.g., network issues, unauthorized access)
             Console.WriteLine($"Error: {ex.Message}");
             NavigationManager.NavigateTo("/");
         }
     }
 
+    private string FormatTransaction(TransactionDTO transaction)
+    {
+        return transaction != null
+            ? $"{transaction.title} - {transaction.amount} {userDetails.Currency} on {transaction.date:dd MMM yyyy}"
+            : "N/A";
+    }
+
     private async Task<string> GetAuthTokenAsync()
     {
-        // Retrieve the token from localStorage
-        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-        return token;
+        return await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+    }
+
+  
+
+    private async Task InitializeCharts()
+    {
+         await JSRuntime.InvokeVoidAsync("initializeCharts", transactionStats);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Delay to ensure the HTML elements are rendered first
+            await Task.Delay(500); // Delay for 500ms or adjust as needed
+            await JSRuntime.InvokeVoidAsync("initializeCharts", transactionStats);
+        }
+    }
+
+    private async Task LoadPendingDebts()
+    {
+        try
+        {
+            var token = await GetAuthTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetAsync($"http://localhost:5050/api/debt/PendingDebts?limit={limit}&page={currentPage}");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<PaginatedResponse<DebtDTO>>();
+                pendingDebts = result.Data;
+                totalPages = result.TotalPages;
+            }
+            else
+            {
+                pendingDebts = new List<DebtDTO>();
+                totalPages = 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+            pendingDebts = new List<DebtDTO>();
+            totalPages = 0;
+        }
+    }
+
+    private bool CanGoToPreviousPage => currentPage > 1;
+    private bool CanGoToNextPage => currentPage < totalPages;
+
+    private async Task PreviousPage()
+    {
+        if (CanGoToPreviousPage)
+        {
+            currentPage--;
+            await LoadPendingDebts();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (CanGoToNextPage)
+        {
+            currentPage++;
+            await LoadPendingDebts();
+        }
+    }
+
+
+    private void OpenUpdateModal() => isModalOpen = true;
+
+    private void CloseUpdateModal() => isModalOpen = false;
+ private async Task UpdateUser()
+    {
+        try
+        {
+            var token = await GetAuthTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.PutAsJsonAsync("api/auth", userToUpdate);
+            if (response.IsSuccessStatusCode)
+            {
+                userDetails = userToUpdate;
+               CloseUpdateModal();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+    public class PaginatedResponse<T>
+    {
+        public List<T> Data { get; set; }
+        public int TotalPages { get; set; }
+        public int TotalCount { get; set; }
     }
 
     public class UserDetailsDTO
@@ -122,22 +321,46 @@ else
         public decimal Budget { get; set; }
     }
 
+    public class TransactionSummaryDTO
+    {
+        public int totalTransactions { get; set; }
+        public decimal totalValue { get; set; }
+    }
+
     public class TransactionStatsDTO
     {
-        public decimal TotalInflows { get; set; }
-        public decimal TotalOutflows { get; set; }
-        public decimal TotalDebts { get; set; }
-        public decimal ClearedDebts { get; set; }
-        public decimal RemainingDebts { get; set; }
+        public decimal totalInflows { get; set; }
+        public decimal totalOutflows { get; set; }
+        public decimal totalDebt { get; set; }
+        public decimal clearedDebt { get; set; }
+        public decimal remainingDebt { get; set; }
         public List<DebtDTO> PendingDebts { get; set; }
-        public decimal HighestInflow { get; set; }
-        public decimal HighestOutflow { get; set; }
-        public decimal HighestDebt { get; set; }
+    }
+
+    public class TransactionOverviewDTO
+    {
+        public TransactionDTO highestInflow { get; set; }
+        public TransactionDTO lowestInflow { get; set; }
+        public TransactionDTO highestOutflow { get; set; }
+        public TransactionDTO lowestOutflow { get; set; }
+        public TransactionDTO highestDebt { get; set; }
+        public TransactionDTO lowestDebt { get; set; }
+    }
+
+    public class TransactionDTO
+    {
+        public int id { get; set; }
+        public string title { get; set; }
+        public decimal amount { get; set; }
+        public DateTime date { get; set; }
+        public string type { get; set; }
+        public string notes { get; set; }
     }
 
     public class DebtDTO
     {
         public string Source { get; set; }
         public DateTime DueDate { get; set; }
+        public decimal Amount { get; set; }
     }
 }

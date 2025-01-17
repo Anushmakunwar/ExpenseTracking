@@ -1,0 +1,328 @@
+@page "/transactions"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@using System.ComponentModel.DataAnnotations
+
+<h3 class="transaction-title">Transactions</h3>
+
+@if (!isAuthenticated)
+{
+    <p class="text-danger">You are not authenticated. Redirecting to login...</p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-6">
+            <label for="">Search</label>
+            <input type="text" class="form-control" placeholder="Search by title" @bind="searchTerm" />
+        </div>
+        <div class="col-md-3">
+            <label for="">Type</label>
+            <select class="form-control" @bind="filterType">
+                <option value="">All</option>
+                <option value="Debit">Debit</option>
+                <option value="Credit">Credit</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="">Tags</label>
+            <select class="form-control" @bind="selectedTag">
+                <option value="">Select a Tag</option>
+                @foreach (var tag in availableTags)
+                {
+                    <option value="@tag.Name">@tag.Name</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <div class="row mt-2">
+        <div class="col-md-6">
+            <label for="">Start Date</label>
+            <input type="date" class="form-control" @bind="startDate" />
+        </div>
+        <div class="col-md-6">
+            <label for="">End Date</label>
+            <input type="date" class="form-control" @bind="endDate" />
+        </div>
+    </div>
+
+    <div class="row mt-2">
+        <div class="col-md-6">
+            <button class="btn btn-primary" @onclick="ApplyFilters">Search</button>
+        </div>
+        <div class="col-md-6 mt-2">
+            <a href="transactions/add" class="btn btn-primary">Add</a>
+        </div>
+    </div>
+
+    <table class="table table-striped mt-3">
+        <thead>
+            <tr>
+                <th>
+                    <button class="btn btn-link" @onclick="SortByDate">Date</button>
+                </th>
+                <th>Title</th>
+                <th>Amount</th>
+                <th>Type</th>
+                <th>Notes</th>
+                <th>Tags</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var transaction in transactions)
+            {
+                <tr>
+                    <td>@transaction.date.ToShortDateString()</td>
+                    <td>@transaction.title</td>
+                    <td>@transaction.amount</td>
+                    <td>@transaction.type</td>
+                    <td>@(transaction.notes ?? "NAN")</td>
+                    <td>
+                      @if (transaction.tags != null && transaction.tags.Any())
+            {
+                @foreach (var tag in transaction.tags)
+                {
+                    <span class="badge badge-primary">@tag</span>
+                }
+            }
+            else
+            {
+                <span class="badge badge-primary">NAN</span>
+            }
+                    </td>
+                    <td>
+                        <button class="delete-btn" @onclick="() => ConfirmDeleteTransaction(transaction.id)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (showDeleteConfirmation)
+    {
+        <div class="modal">
+            <div class="modal-content">
+                <p>Are you sure you want to delete this transaction?</p>
+                <button class="btn btn-danger" @onclick="DeleteTransaction">Yes</button>
+                <button class="btn btn-secondary" @onclick="CancelDelete">No</button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<TransactionModel> transactions = new List<TransactionModel>();
+    private List<TagModel> availableTags = new List<TagModel>();
+    private bool showDeleteConfirmation = false;
+    private int transactionToDeleteId; 
+
+    private string? selectedTag;
+    private bool isAuthenticated = false;
+    private string? authToken;
+    private string searchTerm = string.Empty;
+    private string filterType = string.Empty;
+    private DateTime? startDate;
+    private DateTime? endDate;
+    private bool isDeleting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        authToken = await GetAuthTokenAsync();
+        if (string.IsNullOrWhiteSpace(authToken))
+        {
+            isAuthenticated = false;
+            Console.WriteLine("User not authenticated. Redirecting to login...");
+            NavigationManager.NavigateTo("/");
+        }
+        else
+        {
+            isAuthenticated = true;
+            await FetchTags();
+            await FetchTransactions();
+        }
+    }
+
+    private async Task FetchTransactions()
+    {
+        try
+        {
+            var queryParams = new List<string>();
+
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                queryParams.Add($"title={Uri.EscapeDataString(searchTerm)}");
+            }
+
+            if (!string.IsNullOrEmpty(filterType))
+            {
+                queryParams.Add($"type={filterType}");
+            }
+
+            if (startDate.HasValue)
+            {
+                queryParams.Add($"startDate={startDate.Value.ToString("yyyy-MM-dd")}");
+            }
+
+            if (endDate.HasValue)
+            {
+                queryParams.Add($"endDate={endDate.Value.ToString("yyyy-MM-dd")}");
+            }
+
+            if (!string.IsNullOrEmpty(selectedTag))
+            {
+                queryParams.Add($"tagNames={Uri.EscapeDataString(selectedTag)}");
+            }
+
+            var url = $"http://localhost:5050/api/transactions/filter?{string.Join("&", queryParams)}";
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var responseData = await response.Content.ReadFromJsonAsync<ResponseModel>();
+                if (responseData?.data != null)
+                {
+                    transactions = responseData.data.Select(t => new TransactionModel
+                    {
+                        id = t.id,
+                        title = t.title,
+                        amount = t.amount,
+                        date = t.date,
+                        type = t.type,
+                        notes = t.notes,
+                        tags = t.tags ?? new List<string>()
+                    }).ToList();
+                }
+            }
+            else
+            {
+                Console.WriteLine("Failed to fetch transactions.");
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    Console.WriteLine("Authentication failed. Redirecting to login...");
+                    NavigationManager.NavigateTo("/login");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching transactions: {ex.Message}");
+        }
+    }
+
+    private async Task FetchTags()
+    {
+        try
+        {
+            var token = await GetAuthTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetAsync($"http://localhost:5050/api/tags");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<PaginatedResponse<TagModel>>();
+                availableTags = result?.Data ?? new List<TagModel>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching tags: {ex.Message}");
+        }
+    }
+
+    private async Task ApplyFilters()
+    {
+        await FetchTransactions();
+    }
+
+    private void ConfirmDeleteTransaction(int transactionId)
+    {
+        transactionToDeleteId = transactionId;
+        showDeleteConfirmation = true;
+    }
+
+    private async Task DeleteTransaction()
+    {
+        try
+        {
+            isDeleting = true;
+
+            var request = new HttpRequestMessage(HttpMethod.Delete, $"http://localhost:5050/api/transactions/{transactionToDeleteId}");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var transactionToRemove = transactions.FirstOrDefault(t => t.id == transactionToDeleteId);
+                if (transactionToRemove != null)
+                {
+                    transactions.Remove(transactionToRemove);
+                     showDeleteConfirmation = false; 
+
+                }
+                StateHasChanged(); // Re-render the component
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting transaction: {ex.Message}");
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirmation = false;
+    }
+
+    private async Task<string?> GetAuthTokenAsync()
+    {
+        return await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+    }
+
+    private void SortByDate()
+    {
+        transactions = transactions.OrderByDescending(t => t.date).ToList();
+    }
+
+    // Models
+    public class TransactionModel
+    {
+        public string type { get; set; } = "Debit";
+        public decimal amount { get; set; }
+        public string title { get; set; }
+        public string? notes { get; set; }
+        public List<string> tags { get; set; } = new List<string>();
+        public int id { get; set; }
+        public DateTime date { get; set; }
+    }
+
+    public class TagModel
+    {
+        public string Name { get; set; }
+        public string? Description { get; set; }
+        public int? UserId { get; set; }
+    }
+
+    public class PaginatedResponse<T>
+    {
+        public List<T> Data { get; set; }
+        public int TotalPages { get; set; }
+        public int TotalCount { get; set; }
+    }
+
+    public class ResponseModel
+    {
+        public List<TransactionModel> data { get; set; }
+    }
+}

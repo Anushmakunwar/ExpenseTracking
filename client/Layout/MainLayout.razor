@@ -1,4 +1,6 @@
 ﻿@inherits LayoutComponentBase
+@inject IJSRuntime JSRuntime
+
 <div class="page">
     <div class="sidebar">
         <NavMenu />
@@ -6,7 +8,8 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <!-- Show the userName in the top-row -->
+            <a href="" target="_blank">Hello, @userName!</a>
         </div>
 
         <article class="content px-4">
@@ -14,3 +17,20 @@
         </article>
     </main>
 </div>
+
+@code {
+    private string userName;
+
+    // When the layout is initialized, fetch the username from localStorage
+    protected override async Task OnInitializedAsync()
+    {
+        // Use JS Interop to get the username from localStorage
+        userName = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userName");
+
+        // Optionally handle the case where userName is null or empty
+        if (string.IsNullOrEmpty(userName))
+        {
+            userName = "Guest";  // Fallback to "Guest" if userName is not set
+        }
+    }
+}

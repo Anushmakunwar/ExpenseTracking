@@ -1,0 +1,286 @@
+@page "/transactions/add"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+
+<h3 class="transaction-title">Transactions</h3>
+
+@if (!isAuthenticated)
+{
+    <p class="text-danger">You are not authenticated. Redirecting to login...</p>
+}
+else
+{
+    <EditForm Model="@transactionModel" OnValidSubmit="HandleTransaction" class="transaction-form">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-group">
+            <label for="type" class="form-label">Transaction Type</label>
+            <InputSelect id="type" class="form-input" @bind-Value="transactionModel.Type" @onchange="OnTransactionTypeChanged">
+                <option value="" disabled selected>Select One</option>
+                <option value="Credit">Inflow</option>
+                <option value="Debit">Outflow</option>
+                <option value="debt">Debt</option>
+            </InputSelect>
+        </div>
+
+        <div class="form-group">
+            <label for="amount" class="form-label">Amount</label>
+            <InputNumber id="amount" class="form-input" @bind-Value="transactionModel.Amount" />
+        </div>
+
+        <div class="form-group">
+            <label for="title" class="form-label">Title</label>
+            <InputText id="title" class="form-input" @bind-Value="transactionModel.Title" />
+        </div>
+
+        @if (transactionModel.Type != "debt")
+        {
+            <div class="form-group">
+                <label for="notes" class="form-label">Notes</label>
+                <InputTextArea id="titile" class="form-input" @bind-Value="transactionModel.Notes" />
+            </div>
+        }
+
+        <div class="form-group">
+            <label for="tags" class="form-label">Tags</label>
+            <div class="tags-container">
+                <InputSelect id="tags" class="form-input" @bind-Value="selectedTag" aria-label="Select a tag">
+                    <option value="" disabled>Select one</option>
+                    @foreach (var tag in availableTags)
+                    {
+                        <option value="@tag.Id">@tag.Name</option>
+                    }
+                </InputSelect>
+
+                <!-- Button for creating a new tag -->
+                <button type="button" class="btn btn-link mt-2" @onclick="ShowCustomTagModal">Create new tag</button>
+            </div>
+        </div>
+
+        <!-- Modal for creating custom tag -->
+        @if (showCustomTagModal)
+        {
+            <div class="modal" style="display: block;">
+                <div class="modal-content">
+                    <span class="close" @onclick="HideCustomTagModal">&times;</span>
+                    <h4>Create New Tag</h4>
+                    <InputText id="customTag" class="form-input" @bind-Value="customTagName" />
+                    <button type="button" class="btn btn-success" @onclick="AddCustomTag">Confirm</button>
+                </div>
+            </div>
+        }
+
+        @if (transactionModel.Type == "debt")
+        {
+            <div class="form-group">
+                <label for="source" class="form-label">Source</label>
+                <InputText id="source" class="form-input" @bind-Value="transactionModel.Source" />
+            </div>
+
+            <div class="form-group">
+                <label for="dueDate" class="form-label">Due Date</label>
+                <InputDate id="dueDate" class="form-input" @bind-Value="transactionModel.DueDate" />
+            </div>
+        }
+
+        <button type="submit" class="btn btn-primary">Add Transaction</button>
+    </EditForm>
+
+    <hr />
+}
+
+@code {
+    private TransactionModel transactionModel = new TransactionModel();
+    private List<TransactionModel> transactions = new List<TransactionModel>();
+    private List<TagModel> availableTags = new List<TagModel>();
+    private int selectedTag = 0;   
+    private bool isAuthenticated = false;
+    private string? authToken;
+    private string? customTagName = string.Empty;  
+    private bool showCustomTagModal = false;        
+
+    protected override async Task OnInitializedAsync()
+    {
+        authToken = await GetAuthTokenAsync();
+        if (string.IsNullOrWhiteSpace(authToken))
+        {
+            isAuthenticated = false;
+            Console.WriteLine("User not authenticated. Redirecting to login...");
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            isAuthenticated = true;
+            await FetchTags();
+        }
+    }
+
+    private async Task FetchTags()
+    {
+        Console.WriteLine("Fetching tags...");
+        try
+        {            
+            var token = await GetAuthTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.GetAsync($"http://localhost:5050/api/tags");
+
+            if (response.IsSuccessStatusCode)
+            {
+                if (response != null)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<PaginatedResponse<TagModel>>();
+                    availableTags = result?.Data;
+                    Console.WriteLine($"Fetched {availableTags.Count} tags.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Failed to fetch tags.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching tags: {ex.Message}");
+        }
+    }
+
+    private async Task AddCustomTag()
+    {
+        if (!string.IsNullOrEmpty(customTagName))
+        {
+            try
+            {
+                var newTag = new TagModel { Name = customTagName };
+                var token = await GetAuthTokenAsync();
+                Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                var response = await Http.PostAsJsonAsync("api/tags", newTag);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var createdTag = await response.Content.ReadFromJsonAsync<TagModel>();
+                    if (createdTag != null)
+                    {
+                        availableTags.Add(createdTag);   
+                        selectedTag = createdTag.Id;  
+                        customTagName = string.Empty;     
+                        showCustomTagModal = false;    
+                        Console.WriteLine("Custom tag added successfully.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Failed to add custom tag.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error adding custom tag: {ex.Message}");
+            }
+        }
+    }
+
+    private void ShowCustomTagModal()
+    {
+        showCustomTagModal = true;
+    }
+
+    private void HideCustomTagModal()
+    {
+        showCustomTagModal = false;
+    }
+
+    private void OnTransactionTypeChanged(ChangeEventArgs e)
+    {
+        transactionModel.Type = e.Value.ToString();
+    }
+
+    private async Task HandleTransaction()
+    {
+        Console.WriteLine("Submitting transaction...");
+        try
+        {
+            // Ensure that tagIds is an array
+            transactionModel.TagIds = selectedTag != 0 ? new List<int> { selectedTag } : new List<int>();
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "api/transactions")
+            {
+                Content = JsonContent.Create(transactionModel)
+            };
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Transaction added successfully.");
+                transactions.Add(transactionModel); // Add to local list
+                transactionModel = new TransactionModel(); // Reset the form
+                selectedTag = 0; // Reset selected tag
+                NavigationManager.NavigateTo("/transactions");
+            }
+            else
+            {
+                Console.WriteLine("Failed to add transaction.");
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    Console.WriteLine("Authentication failed. Redirecting to login...");
+                    NavigationManager.NavigateTo("/");
+                }
+    else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+    {
+        // Handle insufficient budget or other error cases
+        string errorMessage = "Insufficient budget!!";
+        await JSRuntime.InvokeVoidAsync("alert", errorMessage);  // Trigger JavaScript alert
+    }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error adding transaction: {ex.Message}");
+        }
+    }
+
+    private async Task<string?> GetAuthTokenAsync()
+    {
+        return await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+    }
+
+    // Models
+    public class PaginatedResponse<T>
+    {
+        public List<T> Data { get; set; }
+        public int TotalPages { get; set; }
+        public int TotalCount { get; set; }
+    }
+
+    public class TagModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class TransactionModel
+    {
+        [Required(ErrorMessage = "Type is required")]
+        public string Type { get; set; } = "inflow";
+
+        [Required(ErrorMessage = "Amount is required")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than zero")]
+        public decimal Amount { get; set; }
+
+        [Required(ErrorMessage = "Title is required")]
+        public string Title { get; set; }
+
+        public string? Notes { get; set; }
+
+        public string? Source { get; set; }
+
+        public DateTime? DueDate { get; set; }
+
+        public List<int> TagIds { get; set; } = new List<int>();   
+    }
+}

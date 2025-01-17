@@ -18,13 +18,13 @@ namespace ExpenseTracker.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
-        private readonly PasswordHasher<User> _passwordHasher; // Use PasswordHasher<User>
+        private readonly PasswordHasher<User> _passwordHasher;  
 
         public AuthService(ApplicationDbContext context, IConfiguration configuration)
         {
             _context = context;
             _configuration = configuration;
-            _passwordHasher = new PasswordHasher<User>(); // Initialize PasswordHasher
+            _passwordHasher = new PasswordHasher<User>();  
         }
 
         public async Task<string> Register(RegisterModel model)
@@ -38,7 +38,7 @@ namespace ExpenseTracker.Services
             // Check if the user already exists
             var userExists = await _context.Users
                 .AnyAsync(u => u.Username == model.Username || u.Email == model.Email);
-            
+
             if (userExists)
             {
                 throw new Exception("User with this username or email already exists.");
@@ -49,23 +49,23 @@ namespace ExpenseTracker.Services
             {
                 Username = model.Username,
                 Email = model.Email,
-                Currency = model.Currency, // Assuming Currency is a required field
-                Budget =0// Assuming Budget is a required field
+                Currency = model.Currency, 
+                Budget = 0 
             };
 
             // Hash the password before storing it
-            user.PasswordHash = _passwordHasher.HashPassword(user, model.Password); // Pass the user object
+            user.PasswordHash = _passwordHasher.HashPassword(user, model.Password); 
 
             // Add the user to the database
             _context.Users.Add(user);
 
             try
             {
-                await _context.SaveChangesAsync(); // Save the user to the database
+                await _context.SaveChangesAsync();  
             }
             catch (Exception ex)
             {
-                throw new Exception("Error saving the user to the database.", ex); // Catch and log any database issues
+                throw new Exception("Error saving the user to the database.", ex);  
             }
 
             // Return the JWT token upon successful registration
@@ -77,7 +77,7 @@ namespace ExpenseTracker.Services
             // Check if the user exists
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Username == model.Username);
-            
+
             if (user == null)
                 throw new Exception("Invalid credentials: User not found.");
 

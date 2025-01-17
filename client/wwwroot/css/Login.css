@@ -1,0 +1,229 @@
+/* General Layout */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f4f7fb;
+    padding: 6px;
+    margin: 6px;
+}
+
+/* Right Section */
+.login-form-container {
+    width: 100%;
+    max-width: 500px;  /* Increased the max-width for more space */
+    padding: 30px;     /* Increased padding for more space */
+    background-color: #ffffff;
+    border-radius: 8px; /* Slight rounding */
+    box-shadow: none;   /* Removed shadow */
+    text-align: center;
+}
+
+/* Title */
+.login-title {
+    font-size: 30px;   /* Increased size for better prominence */
+    font-weight: 600;
+    margin-bottom: 10px;
+    color:green;
+}
+
+/* Subtitle */
+.login-subtitle {
+    font-size: 18px;
+    font-weight: 400;
+    margin-bottom: 30px;
+    color: #88a78f;
+}
+
+/* Form Styles */
+.login-form {
+    width: 100%;
+}
+
+.input-group {
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.input-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.input-field {
+    width: 100%;
+    padding: 12px;      /* Increased padding for bigger input */
+    font-size: 16px;    /* Larger text */
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.input-field:focus {
+    border-color: #007bff;
+}
+
+/* Submit Button */
+.submit-button {
+    width: 100%;
+    padding: 14px;      /* Larger button */
+    font-size: 18px;    /* Larger text */
+    font-weight: bold;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.submit-button:hover {
+    background-color: #0056b3;
+}
+
+/* Forgot Password Link */
+.forgot-password {
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.forgot-password a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.forgot-password a:hover {
+    text-decoration: underline;
+}
+
+/* Separator */
+.separator {
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.separator-line {
+    height: 1px;
+    background-color: #ddd;
+    flex-grow: 1;
+}
+
+.separator-text {
+    margin: 0 10px;
+    font-size: 14px;
+    color: #777;
+}
+
+/* Register Link */
+.register-link-container {
+    margin-top: 20px;
+}
+
+.register-link {
+    font-size: 14px;
+    color: #007bff;
+    text-decoration: none;
+}
+
+.register-link:hover {
+    text-decoration: underline;
+}
+
+
+
+/* register */
+ .register-form-container {
+    width: 100%;
+    max-width: 500px;    
+    padding: 30px;    
+    background-color: #ffffff;
+    border-radius: 8px;  
+    box-shadow: none;    
+    text-align: center;
+}
+
+/* Title */
+.register-title {
+    font-size: 30px;    
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #88a78f;
+}
+.register-subtitle {
+  font-weight: bold;
+    margin-bottom: 30px;
+    color: green;
+}
+
+/* Form Styles */
+.register-form {
+    width: 100%;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.form-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px;       
+    font-size: 16px;     
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.form-input:focus {
+    border-color: #007bff;
+}
+
+/* Register Button */
+.btn-primary {
+    width: 100%;
+    padding: 14px;       
+    font-size: 18px;    
+    font-weight: bold;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+/* Login Link */
+.login-link {
+    margin-top: 20px;
+}
+
+.login-link a {
+    font-size: 14px;
+    color: #007bff;
+    text-decoration: none;
+}
+
+.login-link a:hover {
+    text-decoration: underline;
+}

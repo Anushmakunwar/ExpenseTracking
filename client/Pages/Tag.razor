@@ -37,6 +37,7 @@ else
             <tr>
                 <th>Name</th>
                 <th>Description</th>
+                <th>Actions</th> <!-- Added Actions column for delete -->
             </tr>
         </thead>
         <tbody>
@@ -46,18 +47,39 @@ else
                 {
                     <tr>
                         <td>@tag.Name</td>
-                        <td>@tag.Description</td>
+                        <td>@(tag.Description ?? "NAN")</td>
+                        <td>
+                            <button class="delete-btn" @onclick="() => ConfirmDelete(tag.Id)">Delete</button>
+                        </td>
                     </tr>
                 }
             }
             else
             {
                 <tr>
-                    <td colspan="2" class="text-center">No tags found.</td>
+                    <td colspan="3" class="text-center">No tags found.</td>
                 </tr>
             }
         </tbody>
     </table>
+
+    <!-- Pagination Controls -->
+    <div class="pagination">
+        <button class="page-button" @onclick="() => ChangePage(currentPage - 1)" disabled="@(!CanGoBack)">Previous</button>
+        <span>Page @currentPage of @totalPages</span>
+        <button class="page-button" @onclick="() => ChangePage(currentPage + 1)" disabled="@(!CanGoForward)">Next</button>
+    </div>
+
+    @if (showDeleteConfirmation)
+    {
+        <div class="modal">
+            <div class="modal-content">
+                <p>Are you sure you want to delete this tag?</p>
+                <button class="btn btn-danger" @onclick="DeleteTag">Yes</button>
+                <button class="btn btn-secondary" @onclick="CancelDelete">No</button>
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -65,6 +87,13 @@ else
     private List<TagModel> tags = new List<TagModel>();
     private bool isAuthenticated = false;
     private string? authToken;
+
+    private int currentPage = 1;
+    private int pageSize = 4;
+    private int totalPages = 1;
+
+    private bool showDeleteConfirmation = false; // Show/Hide delete confirmation modal
+    private int tagToDeleteId; // The ID of the tag to delete
 
     protected override async Task OnInitializedAsync()
     {
@@ -85,30 +114,25 @@ else
 
     private async Task FetchTags()
     {
-        Console.WriteLine("Fetching tags from the backend...");
+        Console.WriteLine("Fetching tags...");
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "api/tags");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+            var token = await GetAuthTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-            var response = await Http.SendAsync(request);
+            var requestUri = $"http://localhost:5050/api/tags?limit={pageSize}&page={currentPage}"; // Use limit and page in URL
+            var response = await Http.GetAsync(requestUri);
+
             if (response.IsSuccessStatusCode)
             {
-                var responseData = await response.Content.ReadFromJsonAsync<List<TagModel>>();
-                if (responseData != null)
-                {
-                    tags = responseData;
-                    Console.WriteLine($"Fetched {tags.Count} tags.");
-                }
+                var result = await response.Content.ReadFromJsonAsync<PaginatedResponse<TagModel>>();
+                tags = result?.Data ?? new List<TagModel>();
+                totalPages = result?.TotalPages ?? 1;
+                Console.WriteLine($"Fetched {tags.Count} tags.");
             }
             else
             {
                 Console.WriteLine("Failed to fetch tags.");
-                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                {
-                    Console.WriteLine("Authentication failed. Redirecting to login...");
-                    NavigationManager.NavigateTo("/login");
-                }
             }
         }
         catch (Exception ex)
@@ -117,60 +141,115 @@ else
         }
     }
 
-   private async Task HandleTag()
-{
-    Console.WriteLine("Submitting tag...");
-    try
+    private async Task HandleTag()
     {
-        // Retrieve userId from localStorage
-        var userIdString = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userId");
-
-        // Check if userIdString is null or empty, then parse to int if valid
-        if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out var UserId))
+        Console.WriteLine("Submitting tag...");
+        try
         {
-            Console.WriteLine("User ID is missing or invalid. Cannot submit tag.");
-            return;
-        }
+            // Retrieve userId from localStorage
+            var userIdString = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userId");
 
-        // Set UserId dynamically in the tag model
-        tagModel.UserId = UserId;
-
-        var request = new HttpRequestMessage(HttpMethod.Post, "api/tags")
-        {
-            Content = JsonContent.Create(tagModel)
-        };
-
-        // Add the Bearer token to the request header
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
-
-        // Send the request
-        var response = await Http.SendAsync(request);
-        if (response.IsSuccessStatusCode)
-        {
-            Console.WriteLine("Tag added successfully.");
-            tags.Add(tagModel); // Add to the local list
-            tagModel = new TagModel(); // Reset the form
-        }
-        else
-        {
-            Console.WriteLine("Failed to add tag.");
-            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            // Check if userIdString is null or empty, then parse to int if valid
+            if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out var UserId))
             {
-                Console.WriteLine("Authentication failed. Redirecting to login...");
-                NavigationManager.NavigateTo("/login");
+                Console.WriteLine("User ID is missing or invalid. Cannot submit tag.");
+                return;
+            }
+
+            // Set UserId dynamically in the tag model
+            tagModel.UserId = UserId;
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "api/tags")
+            {
+                Content = JsonContent.Create(tagModel)
+            };
+
+            // Add the Bearer token to the request header
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+
+            // Send the request
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Tag added successfully.");
+                tags.Add(tagModel); // Add to the local list
+                tagModel = new TagModel(); // Reset the form
+            }
+            else
+            {
+                Console.WriteLine("Failed to add tag.");
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    Console.WriteLine("Authentication failed. Redirecting to login...");
+                    NavigationManager.NavigateTo("/");
+                }
             }
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error adding tag: {ex.Message}");
+        }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Error adding tag: {ex.Message}");
-    }
-}
 
     private async Task<string?> GetAuthTokenAsync()
     {
-        // Simulate token retrieval. Replace this with your logic for retrieving the token.
         return await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+    }
+
+    private async Task ChangePage(int newPage)
+    {
+        if (newPage < 1 || newPage > totalPages) return;
+
+        currentPage = newPage;
+        await FetchTags();
+    }
+
+    private bool CanGoBack => currentPage > 1;
+    private bool CanGoForward => currentPage < totalPages;
+
+    private void ConfirmDelete(int tagId)
+    {
+        tagToDeleteId = tagId;
+        showDeleteConfirmation = true;
+    }
+
+    private async Task DeleteTag()
+    {
+        Console.WriteLine($"Deleting tag with ID: {tagToDeleteId}...");
+        try
+        {
+            var token = await GetAuthTokenAsync();
+            Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.DeleteAsync($"http://localhost:5050/api/tags/{tagToDeleteId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                tags.RemoveAll(t => t.Id == tagToDeleteId);  
+                showDeleteConfirmation = false; 
+                Console.WriteLine("Tag deleted successfully.");
+            }
+            else
+            {
+                Console.WriteLine("Failed to delete tag.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting tag: {ex.Message}");
+        }
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirmation = false; 
+    }
+
+    public class PaginatedResponse<T>
+    {
+        public List<T> Data { get; set; }
+        public int TotalPages { get; set; }
+        public int TotalCount { get; set; }
     }
 
     public class TagModel
@@ -180,6 +259,8 @@ else
 
         public string? Description { get; set; }
 
-        public int? UserId { get; set; } // UserId is now part of the model
+        public int? UserId { get; set; }
+
+        public int Id { get; set; } 
     }
 }

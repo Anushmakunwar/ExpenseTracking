@@ -13,15 +13,14 @@ namespace ExpenseTracker.Models
         public string Title { get; set; }
         public decimal Amount { get; set; }
         public DateTime Date { get; set; }
-        
-        // Corrected the data type for Type property to TransactionType
+
         public TransactionType Type { get; set; }  // "Credit", "Debit", "Debt"
-        
-        public string? Notes { get; set; }   // Optional notes for the transaction
-        public int UserId { get; set; }  // Foreign key to User
-        public User? User { get; set; }   // Navigation property
+
+        public string? Notes { get; set; }
+        public int UserId { get; set; }
+        public User? User { get; set; }
 
         // Relationships
-        public ICollection<TransactionTag>? TransactionTags { get; set; }  // One transaction can have many tags
+        public ICollection<TransactionTag>? TransactionTags { get; set; }
     }
 }

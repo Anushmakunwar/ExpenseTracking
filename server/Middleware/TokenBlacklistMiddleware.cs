@@ -1,7 +1,7 @@
 public class TokenBlacklistMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly List<string> _blacklist; // Example in-memory blacklist
+    private readonly List<string> _blacklist; 
 
     public TokenBlacklistMiddleware(RequestDelegate next)
     {

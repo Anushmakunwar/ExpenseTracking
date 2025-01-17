@@ -23,7 +23,7 @@ namespace ExpenseTracker.Controllers
 
         // GET: api/tags
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Tag>>> GetTags()
+        public async Task<ActionResult> GetTags([FromQuery] int page = 1, [FromQuery] int limit = 1000)
         {
             // Access the user information from the HttpContext.User
             var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -32,37 +32,59 @@ namespace ExpenseTracker.Controllers
                 return Unauthorized("User ID is missing or invalid.");
             }
 
-            var tags = await _context.Tags
-                .Where(t => t.UserId == userId) // Assuming the Tag model has UserId
+            // Query to get tags belonging to the authenticated user
+            var query = _context.Tags
+                .Where(t => t.UserId == userId)
+                .AsQueryable();
+
+            // Get the total count of tags before applying pagination
+            int totalCount = await query.CountAsync();
+
+            // Calculate total pages
+            int totalPages = (int)Math.Ceiling((double)totalCount / limit);
+
+            // Apply pagination
+            var tags = await query
+                .Skip((page - 1) * limit)
+                .Take(limit)
                 .ToListAsync();
 
-            return Ok(tags);
+            // Return paginated response
+            return Ok(new
+            {
+                Page = page,
+                Limit = limit,
+                TotalPages = totalPages,
+                TotalCount = totalCount,
+                Data = tags
+            });
         }
-[HttpPost]
-public async Task<IActionResult> CreateTag([FromBody] Tag tag)
-{
-    if (tag == null)
-    {
-        return BadRequest("Tag data is null");
-    }
 
-    // Retrieve the user based on the userId from the claims
-    var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-    Console.WriteLine(userIdString);
-    if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out var userId))
-    {
-        return Unauthorized("User ID is missing or invalid.");
-    }
+        [HttpPost]
+        public async Task<IActionResult> CreateTag([FromBody] Tag tag)
+        {
+            if (tag == null)
+            {
+                return BadRequest("Tag data is null");
+            }
 
-    // Assign the userId from claims to the tag model
-    tag.UserId = userId;
+            // Retrieve the user based on the userId from the claims
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            Console.WriteLine(userIdString);
+            if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out var userId))
+            {
+                return Unauthorized("User ID is missing or invalid.");
+            }
 
-    // Add the tag to the database
-    _context.Tags.Add(tag);
-    await _context.SaveChangesAsync();
+            // Assign the userId from claims to the tag model
+            tag.UserId = userId;
 
-    return CreatedAtAction(nameof(GetTags), new { id = tag.Id }, tag);
-}
+            // Add the tag to the database
+            _context.Tags.Add(tag);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetTags), new { id = tag.Id }, tag);
+        }
 
 
 

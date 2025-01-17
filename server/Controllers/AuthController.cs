@@ -17,7 +17,7 @@ namespace ExpenseTracker.Controllers
         public AuthController(IAuthService authService, ApplicationDbContext context)
         {
             _authService = authService;
-            _context = context; // Proper initialization
+            _context = context;
         }
 
         // POST: api/auth/register
@@ -58,7 +58,7 @@ namespace ExpenseTracker.Controllers
 
             try
             {
-                await _context.SaveChangesAsync(); // Save changes to the database
+                await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
@@ -95,7 +95,7 @@ namespace ExpenseTracker.Controllers
 
             if (user == null)
             {
-                return Unauthorized(); // User not found
+                return Unauthorized();
             }
 
             // Return user details in the DTO format
